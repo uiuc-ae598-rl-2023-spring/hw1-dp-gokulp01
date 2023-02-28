@@ -1,5 +1,14 @@
 # HW1 - Dynamic Programming
 
+## Completed
+- [x] Implementation of all the algorithms
+
+## TODO
+- [x] Log
+- [x] Plots
+
+
+
 ## What to do
 
 ### Algorithms
