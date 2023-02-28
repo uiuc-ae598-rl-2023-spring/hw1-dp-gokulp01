@@ -4,8 +4,8 @@
 - [x] Implementation of all the algorithms
 
 ## TODO
-- [x] Log
-- [x] Plots
+- [ ] Log
+- [ ] Plots
 
 
 
