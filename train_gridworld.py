@@ -13,30 +13,7 @@ algorithms = {
     3: "Q-Learning"
 }
 
-class PolicyIteration:
-    def __init__(self, env, theta=1e-6, gamma=0.95):
-        self.env = env
-        self.theta = theta
-        self.gamma = gamma
-        self.log = {
-            't': [0],
-            's': [],
-            'a': [],
-            'r': [],
-            'V': [],
-            'iters': []
-        }
-        
-    def policy_iteration(self):
-        policy = np.zeros(self.env.num_states, dtype=int)
-        while True:
-            V = self.policy_eval(policy)
-            self.log['V'].append(np.mean(V))
-            policy_stable = True
-            new_policy = self.policy_improve(V)
-            if np.array_equal(policy, new_policy):
-                return V, policy, self.log
-            policy = new_policy
+
 
 class PolicyIteration:
     def __init__(self, env, theta=1e-6, gamma=0.95):
