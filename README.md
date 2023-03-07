@@ -3,10 +3,6 @@
 ## Completed
 - [x] Implementation of all the algorithms
 
-## TODO
-- [ ] Log
-- [ ] Plots
-
 
 
 ## What to do

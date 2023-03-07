@@ -2,7 +2,16 @@ from gridworld import GridWorld
 import random
 from matplotlib import pyplot as plt
 import numpy as np
+from grid_plotter import *
 
+env = GridWorld(hard_version=False)
+env.reset()
+algorithms = {
+    0: "Policy Iteration",
+    1: "Value Iteration",
+    2: "SARSA",
+    3: "Q-Learning"
+}
 
 class PolicyIteration:
     def __init__(self, env, theta=1e-6, gamma=0.95):
@@ -66,9 +75,10 @@ class ValueIteration:
             'iters': []
         }
         
-    def value_iteration(self):
+    def value_iteration(self, verbose=True, plots=True):
         V = [0] * self.env.num_states
         policy = [1] * self.env.num_states
+        iters = 0
         while True:
             delta = 0
             for s in range(self.env.num_states):
@@ -85,12 +95,24 @@ class ValueIteration:
                 V[s] = max_v
                 policy[s] = max_a
                 delta = max(delta, abs(v - V[s]))
+            iters += 1
+            self.log['iters'].append(iters)
+            self.log['V'].append(np.mean(V))
             if delta < self.theta:
                 break
-        return V, policy
+        
+        print("Value Iteration")
+        print("+++++")
+        print("Generating plots")
+        
+        if plots:
+            plot_VI(env, policy, self.log)
+            print("Completed plot generation")
+            print("+++++")
+        return V, policy, self.log
 
 
-def TD_0(pi, alpha=0.5, num_episodes = 1000):
+def TD_0(pi, env, alpha=0.5, num_episodes = 5000):
     num_states = 25
     V = np.zeros(num_states)
     gamma = 0.95
@@ -124,9 +146,10 @@ class SARSA:
             's': [],
             'a': [],
             'r': [],
-            'V': [],
+            'G': [],
+            'episodes': [],
             'iters': []
-        }
+    }
 
     def act(self, state):
         if random.random() < self.epsilon:
@@ -134,28 +157,39 @@ class SARSA:
         else:
             return self.q[state].index(max(self.q[state]))
 
-    def learn(self, num_episodes):
+    def learn(self, num_episodes=5000, plots=True):
         pi = np.ones((self.env.num_states,self.env.num_actions))/self.env.num_actions
 
         returns = []
         for i in range(num_episodes):
             s = self.env.reset()
             a = self.act(s)
+            iters=0
             episode_return = 0.0
             for t in range(self.env.max_num_steps):
+                iters+=1
                 s_next, reward, done = self.env.step(a)
                 a_next = self.act(s_next)
-                episode_return += reward
+                episode_return += reward*self.gamma**(iters-1)
                 self.q[s][a] += self.alpha * (reward + self.gamma * self.q[s_next][a_next] - self.q[s][a])
                 s = s_next
                 a = a_next
                 if done:
                     pi[s] = np.eye(self.env.num_actions)[np.argmax(self.q[s])]
-
-                    returns.append(episode_return)
+                    self.log['G'].append(episode_return)
+                    self.log['episodes'].append(i)
+                    # returns.append(episode_return)
                     break
-        V_approx = TD_0(pi)
-        return returns, V_approx, self.q, pi
+        V_approx = TD_0(pi, env)
+        print("SARSA")
+        print("+++++")
+        print("Generating plots")
+        if plots:
+            plot_SARSA(self.env, pi, self.log, V_approx)
+            print("Completed plot generation")
+            print("+++++")
+        return V_approx, self.q, pi, self.log
+
     
 class QLearning:
     def __init__(self, env, alpha=0.5, gamma=0.95, epsilon=0.1):
@@ -165,13 +199,22 @@ class QLearning:
         self.epsilon = epsilon
         self.Q = np.zeros((self.env.num_states, self.env.num_actions))
 
+        self.log = {
+            't': [0],
+            's': [],
+            'a': [],
+            'r': [],
+            'G': [],
+            'episodes': [],
+            'iters': []
+    }
     def choose_action(self, state):
         if random.uniform(0, 1) < self.epsilon:
             return random.randint(0, self.env.num_actions - 1)
         else:
             return np.argmax(self.Q[state, :])
 
-    def learn(self, num_episodes):
+    def learn(self, num_episodes=5000, plots=True):
         pi = np.ones((self.env.num_states,self.env.num_actions))/self.env.num_actions
 
         episode_returns = []
@@ -179,69 +222,60 @@ class QLearning:
             state = self.env.reset()
             done = False
             episode_return = 0
+            iters=0
             while not done:
+                iters+=1
                 action = self.choose_action(state)
                 next_state, reward, done = self.env.step(action)
-                episode_return += reward
+                episode_return += reward*self.gamma**(iters-1)
                 next_action = np.argmax(self.Q[next_state, :])
                 td_target = reward + self.gamma * self.Q[next_state, next_action]
                 td_error = td_target - self.Q[state, action]
                 self.Q[state, action] += self.alpha * td_error
                 state = next_state
             pi[state] = np.eye(self.env.num_actions)[np.argmax(self.Q[state])]
-            episode_returns.append(episode_return)
-        V_approx = TD_0(pi)
-        print(V_approx)
-        return episode_returns, V_approx, self.Q, pi
+            # episode_returns.append(episode_return)
+            self.log['G'].append(episode_return)
+            self.log['episodes'].append(episode)
+        V_approx = TD_0(pi, env)
+        print("QLearning")
+        print("+++++")
+        print("Generating plots")
+        if plots:
+            plot_QL(self.env, pi, self.log, V_approx)
+            print("Completed plot generation")
+            print("+++++")
+        return V_approx, self.Q, pi, self.log
+
+
+def main():
+
+    env = GridWorld(hard_version=False)
+    env.reset()
     
+    
+    value_iteration = ValueIteration(env)
+    V2, pi2, log2 = value_iteration.value_iteration()   
 
-env = GridWorld(hard_version=False)
-env.reset()
-policy_iteration = PolicyIteration(env)
-V1, pi1, log = policy_iteration.policy_iteration()
-print("Policy Iteration")
-print(f"Value Function={V1}")
-print(f"Policy={pi1}")
-print(f"Mean V={log['V']}")
-env.reset()
+    sarsa = SARSA(env)
+    V3, q3, pi3, log3 = sarsa.learn(5000)
 
-print("---------------")
-print("Value Iteration")
-value_iteration = ValueIteration(env)
-V, policy = value_iteration.value_iteration()
-print(V, policy)
-env.reset()
+    q_learn = QLearning(env)
+    V4, q4, pi4, log4 = q_learn.learn(5000)
 
-print("---------------")
-print("SARSA")
-sarsa = SARSA(env)
-returns, V_approx, q, pi = sarsa.learn(1000)
-print(f"Q = {q}")
-print(f"V = {np.max(q,axis=1)}")
-print(f"Policy = {np.argmax(pi,axis=1)}")
-print(f"Approximate V using TD(0) = {V_approx}")
+    alpha_vals = np.linspace(0, 1, 11)
+    epsilon_vals = np.linspace(0, 0.5, 11)
 
+    for i in range(2):
+        algo_name = algorithms[i + 2]
+        if i == 0:
+            plot_alpha_sweep(algo_name, env, alpha_vals, "alpha_sweep_SARSA.png")
+            plot_epsilon_sweep(algo_name, env, epsilon_vals, "epsilon_sweep_SARSA.png")
+        else:
+            plot_alpha_sweep(algo_name, env, alpha_vals, "alpha_sweep_qlearning.png")
+            plot_epsilon_sweep(algo_name, env, epsilon_vals, "epsilon_sweep_qlearning.png")
 
-
-# plt.plot(returns)
-# plt.xlabel('Episode')
-# plt.ylabel('Return')
-# plt.show()
-
-
-print("---------------")
-print("QLearning")
-q_learn = QLearning(env)
-returns, V_approx, q, pi = q_learn.learn(1000)
-print(f"Q = {q}")
-print(f"V = {np.max(q,axis=1)}")
-print(f"Policy = {np.argmax(pi,axis=1)}")
-print(f"Approximate V using TD(0) = {V_approx}")
-
-
-# plt.plot(episode_returns)
-# plt.xlabel('Episode')
-# plt.ylabel('Return')
-# plt.show()
-
+    
+if __name__ == '__main__':
+    main()
 
