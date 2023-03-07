@@ -38,28 +38,58 @@ class PolicyIteration:
                 return V, policy, self.log
             policy = new_policy
 
-    def policy_eval(self, policy):
+class PolicyIteration:
+    def __init__(self, env, theta=1e-6, gamma=0.95):
+        self.env = env
+        self.theta = theta
+        self.gamma = gamma
+        self.log = {
+            't': [0],
+            's': [],
+            'a': [],
+            'r': [],
+            'V': [],
+            'iters': []
+        }
+        
+    def policy_iteration(self, plots=True):
         V = np.zeros(self.env.num_states)
-        iters2 = 0
+        pi = np.ones([self.env.num_states, self.env.num_actions]) / self.env.num_actions
+        iters = 0
+        
         while True:
-            iters2 += 1
-            delta = 0
+            delta = np.inf
+            while delta > self.theta:
+                delta = 0
+                iters += 1
+                for s in range(self.env.num_states):
+                    v = 0
+                    for a in range(self.env.num_actions):
+                        q = 0
+                        for s1 in range(self.env.num_states):
+                            q += self.env.p(s1, s, a) * (self.env.r(s, a) + self.gamma * V[s1])
+                        v += pi[s][a] * q
+                    delta = max(delta, abs(v - V[s]))
+                    V[s] = v
+                    
+            self.log['V'].append(np.mean(V))
+            self.log['iters'].append(iters)
+            
+            policy_stable = True
             for s in range(self.env.num_states):
-                v = V[s]
-                new_v = sum([self.env.p(s1, s, policy[s]) * (self.env.r(s, policy[s]) + self.gamma * V[s1]) for s1 in range(self.env.num_states)])
-                V[s] = new_v
-                delta = max(delta, abs(v - new_v))
-            if delta < self.theta:
-                self.log['iters'].append(iters2)
-                return V
+                chosen_a = np.argmax(pi[s])
+                q_vals = [sum([self.env.p(s1, s, a) * (self.env.r(s, a) + self.gamma * V[s1]) for s1 in range(self.env.num_states)]) for a in range(self.env.num_actions)]
+                best_a = np.argmax(q_vals)
+                if chosen_a != best_a:
+                    policy_stable = False
+                pi[s] = np.eye(self.env.num_actions)[best_a]
+                
+            if policy_stable:
+                if plots:
+                    plot_PI(env, pi, self.log)
+                return V, np.argmax(pi, axis=1), self.log
 
-    def policy_improve(self, V):
-        new_policy = np.zeros(self.env.num_states, dtype=int)
-        for s in range(self.env.num_states):
-            action_values = [sum([self.env.p(s1, s, a) * (self.env.r(s, a) + self.gamma * V[s1]) for s1 in range(self.env.num_states)]) for a in range(self.env.num_actions)]
-            best_action = np.argmax(action_values)
-            new_policy[s] = best_action
-        return new_policy
+
 
 class ValueIteration:
     def __init__(self, env, gamma=0.95, theta=1e-6):
@@ -252,8 +282,9 @@ def main():
 
     env = GridWorld(hard_version=False)
     env.reset()
-    
-    
+    policy_iteration = PolicyIteration(env)
+    V1, pi1, log1 = policy_iteration.policy_iteration()       
+
     value_iteration = ValueIteration(env)
     V2, pi2, log2 = value_iteration.value_iteration()   
 
