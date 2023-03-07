@@ -1,5 +1,10 @@
 # HW1 - Dynamic Programming
 
+## Completed
+- [x] Implementation of all the algorithms
+
+
+
 ## What to do
 
 ### Algorithms
